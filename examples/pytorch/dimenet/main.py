@@ -83,7 +83,11 @@ def train(device, model, opt, loss_fn, train_loader):
         g = g.to(device)
         l_g = l_g.to(device)
         labels = labels.to(device)
-        logits = model(g, l_g)
+        ### logits = model(g, l_g)
+        logits = model(g, l_g)  # NOTE @mjwen, shape (num_nodes, num_targets)
+        # TODO @mjwen should pass in metadata (from dataloader) that selects the values
+        #  in logits, corresponding to atoms with label
+
         loss = loss_fn(logits, labels.view([-1, 1]))
         epoch_loss += loss.data.item() * len(labels)
         num_samples += len(labels)
@@ -97,14 +101,18 @@ def train(device, model, opt, loss_fn, train_loader):
 def evaluate(device, model, valid_loader):
     model.eval()
     predictions_all, labels_all = [], []
-    
+
     for g, l_g, labels in valid_loader:
         g = g.to(device)
         l_g = l_g.to(device)
-        logits = model(g, l_g)
+        ### logits = model(g, l_g)
+        logits = model(g, l_g)  # NOTE @mjwen, shape (num_nodes, num_targets)
+        # TODO @mjwen should pass in metadata (from metadata) that selects the values in
+        #  logits, corresponding to atoms with label
+
         labels_all.extend(labels)
         predictions_all.extend(logits.view(-1,).cpu().numpy())
-    
+
     return np.array(predictions_all), np.array(labels_all)
 
 @click.command()
@@ -212,13 +220,13 @@ def main(model_cnf):
     # model training
     best_mae = 1e9
     no_improvement = 0
-    
+
     # EMA for valid and test
     logger.info('EMA Init')
     ema_model = copy.deepcopy(model)
     for p in ema_model.parameters():
         p.requires_grad_(False)
-    
+
     best_model = copy.deepcopy(ema_model)
 
     logger.info('Training')
@@ -242,7 +250,7 @@ def main(model_cnf):
                 best_model = copy.deepcopy(ema_model)
         else:
             logger.info(f'Epoch {i} | Train Loss {train_loss:.4f}')
-        
+
         scheduler.step()
 
     logger.info('Testing')

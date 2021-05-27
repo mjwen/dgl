@@ -78,7 +78,7 @@ class DimeNetPP(nn.Module):
                                              num_radial=num_radial,
                                              cutoff=cutoff,
                                              envelope_exponent=envelope_exponent)
-        
+
         # embedding block
         self.emb_block = EmbeddingBlock(emb_size=emb_size,
                                         num_radial=num_radial,
@@ -86,7 +86,7 @@ class DimeNetPP(nn.Module):
                                         cutoff=cutoff,
                                         envelope_exponent=envelope_exponent,
                                         activation=activation)
-        
+
         # output block
         self.output_blocks = nn.ModuleList({
             OutputPPBlock(emb_size=emb_size,
@@ -110,7 +110,7 @@ class DimeNetPP(nn.Module):
                                num_after_skip=num_after_skip,
                                activation=activation) for _ in range(num_blocks)
         })
-    
+
     def edge_init(self, edges):
         # Calculate angles k -> j -> i
         R1, R2 = edges.src['o'], edges.dst['o']
@@ -125,14 +125,16 @@ class DimeNetPP(nn.Module):
         # Notice: it's dst, not src
         sbf = edges.dst['rbf_env'] * cbf  # [None, 42]
         return {'sbf': sbf}
-    
+
     def forward(self, g, l_g):
         # add rbf features for each edge in one batch graph, [num_radial,]
         g = self.rbf_layer(g)
         # Embedding block
         g = self.emb_block(g)
         # Output block
-        P = self.output_blocks[0](g)  # [batch_size, num_targets]
+        ### P = self.output_blocks[0](g)  # [batch_size, num_targets]
+        P = self.output_blocks[0](g)  #NOTE @mjwen [num_nodes, num_targets]
+
         # Prepare sbf feature before the following blocks
         for k, v in g.edata.items():
             l_g.ndata[k] = v
@@ -142,5 +144,5 @@ class DimeNetPP(nn.Module):
         for i in range(self.num_blocks):
             g = self.interaction_blocks[i](g, l_g)
             P += self.output_blocks[i + 1](g)
-        
+
         return P
